@@ -27,8 +27,27 @@ from report_outlook.locator import Locator
 # Data info objects
 from report_data.route_info import Route_info
 
-# Roster
+# Roster 
 from roster.roster import Roster
+
+# Calculate Suez per Run
+from tip.suez_tip import Suez_tip
+
+# Calculate Salary 
+from salary.salary import Salary
+
+# Calculate Fuel from Waste Edge
+
+from fuel.we_fuel import Waste_edge_fuel_report  
+
+
+# Calculate toll cost
+
+from toll.toll import Toll
+
+# Calculate Rego 
+
+from rego.rego import Rego
 
 
 CURRENT_WEEK = '18th_2021'
@@ -37,15 +56,26 @@ BOOKING_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\booking_weekly\\{CURRENT_WEEK}.
 
 TIPPING_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\tipping_weekly\\waste_edge_tipping\\{CURRENT_WEEK}.csv'
 
-SUEZ_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\og_tipping_suez\\weekly\\{CURRENT_WEEK}.csv'
+SUEZ_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\tipping_weekly\\og_tipping_suez\\weekly\\{CURRENT_WEEK}.csv'
 
 # Excel
 ROSTER_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\Roster\\weekly_roster_processed\\{CURRENT_WEEK}.xlsx'
 
 # Excel
-SALARY_PATH = 'D:\\Run Analysis\\BLOB_STORAGE\\Drivers_pay\\paysheet_17th_2021.xlsx'
+SALARY_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\Drivers_pay\\{CURRENT_WEEK}.xlsx'
+
+# Excel
+FUEL_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\fuel\\waste_edge_fuel_transactions\\{CURRENT_WEEK}.xlsx'
 
 VISY_PATH = ''
+
+TOLL_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\toll\\og_toll\\{CURRENT_WEEK}.csv'
+
+TOLL_TAGID_PATH = 'D:\\Run Analysis\\BLOB_STORAGE\\toll_id.csv'
+
+# Excel
+PATH_REGO = 'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\Rego_2021.xlsx'
+
 
 r_types = [
     # 'TOTAL', 
@@ -57,9 +87,13 @@ r_types = [
     # 'SUBCONTRACTED'
 ]
 
+# UOS RUN  AND NIWPR1 2 runs
+
 gw = sorted(By_Revenue_type['GENERAL_WASTE'].value)
 cm = sorted(By_Revenue_type['COMINGLE'].value)
 cb = sorted(By_Revenue_type['CARDBOARD'].value)
+
+
 uos = sorted(By_Revenue_type['UOS'].value)
 
 NON_GW_ROUTE = ['APR', 'FLP', 'HYG', 'RED', 'RL5', 'RL6', 'RL8', 'RLP', 'RLR', 'SWP','CBK', 'RLC', 'RLG', 'DOY','NEPCB','UOSCB','CMDCB','CUMCB']
@@ -101,23 +135,88 @@ we_tipping_df = Waste_edge_tip().filter(we_tipping_df)
 
 all_route_waste_edge_tip = Waste_edge_tip().route_tip(we_tipping_df)
 
-# Clean Roster DataFrame   
+# Clean Roster DataFrame 
+# For Suez General Waste tipping only  
 # ==============================================
 
 df_ros = pd.read_excel(ROSTER_PATH)
 
 df_ros = Roster().rm_space('Primary_truck', df_ros)
 
+# ===========================================================
 df_gw_ros = Roster().df_gw_runs(NON_GW_ROUTE, df_ros)
 
-df_gw_ratio = Roster().ratio(df_ros)
+df_gw_ratio = Roster().suez_ratio(df_gw_ros)
 
-print(df_gw_ratio)
-# ==============================================
+df_suez = pd.read_csv(SUEZ_PATH)
 
+# ****************************************************************
+# Display Dataset in tab for supporting
+# Full Suez Ton and Price, Have yet grouped
 
+# Display
+table_detail_suez_cost_per_run = Suez_tip().detail_allocation(df_gw_ratio, df_suez)
+# Display
+table_suez_cost_per_run = Suez_tip().allocation(df_gw_ratio, df_suez)
 
+# ***************************************************************
+# ===================================================================
+# Clean Salary ID 
+ 
+df_sal = pd.read_excel(SALARY_PATH)
+
+df_sal = Salary().lowercase_ID(df_sal)
+# ***************************************************************
+# Display Dataset in tab for Salary
+salary_ratio = Roster().salary_ratio(df_ros)
+
+# Display
+table_detail_salary_per_run = Salary().detail_allocation(salary_ratio, df_sal)
+
+# Display
+table_salary_per_run = Salary().allocation(salary_ratio, df_sal)
+
+# *******************************************************************
+# Fuel Report from Waste Edge  
+# ===================================================================
+
+df_we_fuel = pd.read_excel(FUEL_PATH)
+
+df_we_fuel =  Cleaner().cleanNsplit_routes(df_we_fuel, 'RouteNumber')
+
+# Display
+df_waste_edge_fuel_cost_per_run = Waste_edge_fuel_report().report(df_we_fuel)
+
+# ===================================================================
 # Insert info into route income objects
+
+# *******************************************************************
+# Toll Expense  
+# ===================================================================
+
+df_toll_cost  = pd.read_csv(TOLL_PATH)
+
+df_toll_tagID = pd.read_csv(TOLL_TAGID_PATH)
+
+toll_ratio = Roster().toll_ratio(df_ros)    
+
+df_toll_cost = Toll().process_tollCost(df_toll_cost)
+
+df_toll_cost = Toll().merge_rego_tollcost(df_toll_cost, df_toll_tagID)
+
+# Display
+table_tollCost_per_run = Toll().allocation(toll_ratio, df_toll_cost)
+
+# *******************************************************************
+# rego Expense  
+# ===================================================================
+df_rego = pd.read_excel(PATH_REGO)
+
+rego_ratio = Roster().rego_ratio(df_ros)
+
+table_rego_per_run = Rego().allocation(rego_ratio, df_rego)
+
+# df_ros
 
 ROUTE_INFO_LIST = {}
 
@@ -136,24 +235,67 @@ for name in all_route_income_name.index:
 for name in all_route_waste_edge_tip.index:
 
     if name in gw:
+        try:
+            
+            ROUTE_INFO_LIST[name].gw_waste_edge_weight = all_route_waste_edge_tip[name].item()
+            
+            ROUTE_INFO_LIST[name].gw_suez_weight = table_suez_cost_per_run[table_suez_cost_per_run.Primary_route_x.eq(name)].ton_per_run.item()
+            
+            ROUTE_INFO_LIST[name].gw_var_on_waste_edge_to_suez_weight = ROUTE_INFO_LIST[name].gw_suez_weight - ROUTE_INFO_LIST[name].gw_waste_edge_weight
 
-        ROUTE_INFO_LIST[name].gw_waste_edge_weight = all_route_waste_edge_tip[name]
-                
-    elif name in cm:
+            ROUTE_INFO_LIST[name].gw_suez_cost = table_suez_cost_per_run[table_suez_cost_per_run.Primary_route_x.eq(name)].cost_per_run.item()
 
-        ROUTE_INFO_LIST[name].cm_waste_edge_weight = all_route_waste_edge_tip[name]
+            ROUTE_INFO_LIST[name].driver_salary = table_salary_per_run[table_salary_per_run.Primary_route.eq(name)].cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_fuel = Waste_edge_fuel_report().fuel_cost(df_we_fuel, name)
+
+            ROUTE_INFO_LIST[name].mv_tolls = table_tollCost_per_run[table_tollCost_per_run.Primary_route.eq(name)].toll_cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_rego = table_rego_per_run[table_rego_per_run.Primary_route_x.eq(name)].amount.item()
+            
+        except:
+            
+            print(f'GW Cant fill ====> {name}')
         
+    elif name in cm:
+        try:
+            ROUTE_INFO_LIST[name].cm_waste_edge_weight = all_route_waste_edge_tip[name].item()
+            
+            ROUTE_INFO_LIST[name].driver_salary = table_salary_per_run[table_salary_per_run.Primary_route.eq(name)].cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_fuel = Waste_edge_fuel_report().fuel_cost(df_we_fuel, name)
+
+            ROUTE_INFO_LIST[name].mv_tolls = table_tollCost_per_run[table_tollCost_per_run.Primary_route.eq(name)].toll_cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_rego = table_rego_per_run[table_rego_per_run.Primary_route_x.eq(name)].amount.item()
+
+
+        except:
+            
+            print(f'CM Cant fill ====> {name}')
+
     elif name in cb:
 
-        ROUTE_INFO_LIST[name].cb_waste_edge_weight = all_route_waste_edge_tip[name]
-    
+        try:
+            ROUTE_INFO_LIST[name].cb_waste_edge_weight = all_route_waste_edge_tip[name].item()
+
+            ROUTE_INFO_LIST[name].driver_salary = table_salary_per_run[table_salary_per_run.Primary_route.eq(name)].cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_fuel = Waste_edge_fuel_report().fuel_cost(df_we_fuel, name)
+
+            ROUTE_INFO_LIST[name].mv_tolls = table_tollCost_per_run[table_tollCost_per_run.Primary_route.eq(name)].toll_cost_per_run.item()
+
+            ROUTE_INFO_LIST[name].mv_rego = table_rego_per_run[table_rego_per_run.Primary_route_x.eq(name)].amount.item()
+
+        except:
+            
+            print(f'CB Cant fill ====> {name}')
+
+
+
     # UOS runs - Mixed with GW CM CB => split the actual weight 
 
-     
-# Actual From Suez Tip 
-
-
-
+print(ROUTE_INFO_LIST['BR1'].mv_rego)
 
 
 
