@@ -40,7 +40,6 @@ from salary.salary import Salary
 
 from fuel.we_fuel import Waste_edge_fuel_report  
 
-
 # Calculate toll cost
 
 from toll.toll import Toll
@@ -48,6 +47,10 @@ from toll.toll import Toll
 # Calculate Rego 
 
 from rego.rego import Rego
+
+# Calculate Rego 
+
+from mv_expense.mv_expense import Mv_expense
 
 
 CURRENT_WEEK = '18th_2021'
@@ -67,8 +70,6 @@ SALARY_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\Drivers_pay\\{CURRENT_WEEK}.xlsx
 # Excel
 FUEL_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\fuel\\waste_edge_fuel_transactions\\{CURRENT_WEEK}.xlsx'
 
-VISY_PATH = ''
-
 TOLL_PATH = f'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\toll\\og_toll\\{CURRENT_WEEK}.csv'
 
 TOLL_TAGID_PATH = 'D:\\Run Analysis\\BLOB_STORAGE\\toll_id.csv'
@@ -76,6 +77,13 @@ TOLL_TAGID_PATH = 'D:\\Run Analysis\\BLOB_STORAGE\\toll_id.csv'
 # Excel
 PATH_REGO = 'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\Rego_2021.xlsx'
 
+# Excel 
+PATH_MVEXP = f'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\all_other_mv_expense\\to_be_process\\{CURRENT_WEEK}.xlsx'
+
+# Will concat all roster for Ratio
+PATH_ALL_ROS = 'D:\\Run Analysis\\BLOB_STORAGE\\Roster\\weekly_roster_processed'
+
+VISY_PATH = ''
 
 r_types = [
     # 'TOTAL', 
@@ -92,7 +100,6 @@ r_types = [
 gw = sorted(By_Revenue_type['GENERAL_WASTE'].value)
 cm = sorted(By_Revenue_type['COMINGLE'].value)
 cb = sorted(By_Revenue_type['CARDBOARD'].value)
-
 
 uos = sorted(By_Revenue_type['UOS'].value)
 
@@ -198,7 +205,7 @@ df_toll_cost  = pd.read_csv(TOLL_PATH)
 
 df_toll_tagID = pd.read_csv(TOLL_TAGID_PATH)
 
-toll_ratio = Roster().toll_ratio(df_ros)    
+toll_ratio = Roster().toll_ratio(df_ros)
 
 df_toll_cost = Toll().process_tollCost(df_toll_cost)
 
@@ -216,11 +223,40 @@ rego_ratio = Roster().rego_ratio(df_ros)
 
 table_rego_per_run = Rego().allocation(rego_ratio, df_rego)
 
+# *******************************************************************
+# Mv Expense  
+# ===================================================================
+
+# # Excel 
+# PATH_MVEXP = 'D:\Run Analysis\BLOB_STORAGE\expenses_truck\all_other_mv_expense\to_be_process'
+
+# # Will concat all roster for Ratio
+# PATH_ALL_ROS = 'D:\\Run Analysis\\BLOB_STORAGE\\Roster\\weekly_roster_processed'
+
+df_mvexp = pd.read_excel(PATH_MVEXP)
+
+df_mvexp_ratio = Mv_expense().ratio(PATH_ALL_ROS)
+
+
+completed_path = 'D:\\Run Analysis\\BLOB_STORAGE\\expenses_truck\\abc.csv'
+
+df_mvexp_ratio.to_csv(completed_path)
+
+table_mvexp_per_run = Mv_expense().allocation(df_mvexp, df_mvexp_ratio)
+
+
+
+
+
+# table_mvexp_per_run.to_csv(completed_path)
+
+
 # df_ros
 
 ROUTE_INFO_LIST = {}
 
 all_route_income_name = Incomes().all_route_income(booking_df)
+
 
 
 # Populate income into ROUTE_INFO_LIST
@@ -269,7 +305,6 @@ for name in all_route_waste_edge_tip.index:
 
             ROUTE_INFO_LIST[name].mv_rego = table_rego_per_run[table_rego_per_run.Primary_route_x.eq(name)].amount.item()
 
-
         except:
             
             print(f'CM Cant fill ====> {name}')
@@ -291,12 +326,20 @@ for name in all_route_waste_edge_tip.index:
             
             print(f'CB Cant fill ====> {name}')
 
-
-
     # UOS runs - Mixed with GW CM CB => split the actual weight 
+
+
 
 print(ROUTE_INFO_LIST['BR1'].mv_rego)
 
+
+
+# mv_rm_cc : float = 0 ,
+#         mv_rm_cb : float = 0 ,
+#         mv_rm_mc : float = 0 ,
+#         mv_rm_tyre : float = 0 ,
+#         labour : float = 0 ,
+#         mv_others : float = 0
 
 
 # # ====================================================================
@@ -319,10 +362,6 @@ print(ROUTE_INFO_LIST['BR1'].mv_rego)
 # START_GW_ROUTE_HEADER_ROW = 4
 
 # START_GW_ROUTE_HEADER_COL = 12
-
-
-
-
 
 
 # # Total Sheet
